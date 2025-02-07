@@ -1,13 +1,19 @@
 ---
 title: 'Analyzing and Visualizing Networks in R'
 author: '[Joseph J. Ferrare](http://www.josephferrare.com), Ph.D., Associate Professor, University of Washington Bothell'
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "docs",
+      output_file = "index.html"
+    )
+  })
 output:
-   html_document:
+  html_document:
     theme: cosmo
     highlight: tango
     toc: true
     toc_float: true
-    output_dir: "docs"
 
 ---
 This page is meant to serve as a tutorial to using R for network analysis. There are already many excellent tutorials available online, such as those created by [Katya Ognyanova](https://kateto.net/tutorials/), [Jesse Sadler](https://www.jessesadler.com/post/network-analysis-with-r/), [Janpu Hou](https://rstudio-pubs-static.s3.amazonaws.com/337696_c6b008e0766e46bebf1401bea67f7b10.html), among others. Other resources that are helpful as you are learning network analysis in R include: the [Statnet Project Workshops](https://github.com/statnet/Workshops/wiki) wiki, Francios Briatte's [Awesome Network Analysis](https://github.com/briatte/awesome-network-analysis) archive, and the [R graph gallery](https://www.r-graph-gallery.com/index.html), Keith McNulty's [Handbook of Graphs and Networks in People Analytics](https://ona-book.org/index.html), and Wickham's and Grolemund's [R for Data Science](https://r4ds.had.co.nz) reference book.
