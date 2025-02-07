@@ -563,6 +563,7 @@ set.seed(2022)
 plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
      vertex.size=teacher_reach2*10)
 ```
+
 ## PageRank
 PageRank, developed by Google founders Larry Page and Sergey Brin, is an interesting measure of a node's importance in networks. It's hard to overstate how much this algorithm has impacted our lives (for better or worse is another discussion). At its core, PageRank is intuitive: a node's importance is determined not just by how many connections it receives, but by the quality of those connections. A node gains higher PageRank when it receives connections from other nodes that themselves have high PageRank scores. This recursive relationship means that each node's centrality score is continuously updated based on the changing scores of its connecting nodes. In the present context, a link from a highly respected teacher carries more weight than multiple links from teachers who are less often sought after for advice. 
 ```{r}
@@ -573,6 +574,7 @@ plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
 ```
 
 # Community Detection
+Community detection is a method of identifying groups of nodes that are more densely connected to one another than to other nodes in the network. There are many algorithms for community detection, and the choice of algorithm depends on the research question and the nature of the data. The following provides examples of four common algorithms: fast greedy, edge betweenness, Louvain, and Infomap.
 
 ## Fastgreedy
 ```{r}
@@ -582,7 +584,7 @@ set.seed(5)
 plot(karate, vertex.labels=NA, main="Zachary's Karate Club")
 zach <- make_graph("Zachary") # make a new graph object that excludes the default colors based on faction
 fast <- cluster_fast_greedy(zach)
-dendPlot(fast) # provides a dendrogram of the hierarchical community structure
+plot_dendrogram(fast) # provides a dendrogram of the hierarchical community structure
 set.seed(5)
 plot(fast,zach,vertex.label.color="black", vertex.size=14, vertex.label.size=1)
 modularity(fast) # value of modularity for the fast.greedy community detection
