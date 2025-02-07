@@ -1,0 +1,713 @@
+---
+title: 'Analyzing and Visualizing Networks in R'
+author: '[Joseph J. Ferrare](http://www.josephferrare.com), Ph.D., Associate Professor, University of Washington Bothell'
+output:
+   html_document:
+    theme: cosmo
+    highlight: tango
+    toc: true
+    toc_float: true
+    output_dir: "docs"
+
+---
+This page is meant to serve as a tutorial to using R for network analysis. There are already many excellent tutorials available online, such as those created by [Katya Ognyanova](https://kateto.net/tutorials/), [Jesse Sadler](https://www.jessesadler.com/post/network-analysis-with-r/), [Janpu Hou](https://rstudio-pubs-static.s3.amazonaws.com/337696_c6b008e0766e46bebf1401bea67f7b10.html), among others. Other resources that are helpful as you are learning network analysis in R include: the [Statnet Project Workshops](https://github.com/statnet/Workshops/wiki) wiki, Francios Briatte's [Awesome Network Analysis](https://github.com/briatte/awesome-network-analysis) archive, and the [R graph gallery](https://www.r-graph-gallery.com/index.html), Keith McNulty's [Handbook of Graphs and Networks in People Analytics](https://ona-book.org/index.html), and Wickham's and Grolemund's [R for Data Science](https://r4ds.had.co.nz) reference book.
+
+# Some R Basics for Network Analysis
+The following section includes some basic tasks that you are likely to use while doing network analysis in R. The main idea here is to start to become familiar with the R language. For the purposes of network analysis, it is helpful to understand how R makes use of vectors, factors, matrices, lists, and data frames. Please note that this file is meant to focus on R code; see the lectures and slides to learn about the concepts being discussed.
+
+## Vectors
+The c() function allows you to create vectors in R.
+```{r}
+v1 <- c(77, 3, 14, 102, 66) # this is a numeric vector with a length of 5
+v2 <- c(1, 1, 1, 1, 1) # another vector with length 5
+length(v1) # verify length of the vector v1
+v3 <- c("network", "analysis", "is", "super", "fun") # this is a character vector with a length of 5
+v4 <- c("FALSE", "TRUE") # this is a logical vector
+class(v1) # verify numeric vector
+class(v3) # verify character vector
+class(v4) # verify character vector
+```
+You can combine vectors, but some restrictions will be imposed if you combine different types. For example, if I combine v1 (numeric) with v2 (string/character), then R automatically treats this as a character vector. Numerics can be characters, but characters cannot be numerics. There are a variety of other operations you can do with vectors:
+```{r}
+v4 <- c(v1,v3) # create new vector that combines multiple
+class(v4) # verify character vector after combining 
+v5 <- v1 + v2 # create a new vector with element-wise addition (must be same length)
+head(v5) # since v2 was a vector of 1s, v5 should add 1 to each element in v1
+v5 <- v1 + 1 # You can also just add 1 (or any number) to the vector
+v6 <- v2 * 2 # Or multiply the elements, in this case by 2
+head(v6)
+sum(v2) # adds all the elements in the vector
+mean(v1) # takes the mean of the elements
+sd(v1) # standard deviation of the elements
+cor(v1, v5) # correlation between vectors of same length
+```
+
+## Factors
+Factors are a way for us to store data as categories. R will assign each distinct category an integer value, but that does not mean this is a vector of quantitative values. The integers are simply a way for R to organize the data into levels. For example, if I create a factor of UWB school affiliation among a hypothetical academic committee, you will see that each school is a level and has a corresponding value (1=BUS, 2=IAS, 3=NUR, 4=SES, 5=STEM). 
+```{r}
+UWBschools <- factor(c("IAS", "BUS", "IAS", "STEM", "BUS", "NUR", "NUR", "SES"))
+UWBschools
+as.numeric(UWBschools)
+```
+### Ordered factors
+Some factors have an order, such as levels of educational degree attainment:
+```{r}
+degree = c("high school","associates","bachelors","masters","masters", "high school","high school","associates","bachelors","high school", "high school")
+degree = factor(degree)
+table(degree)
+```
+Note that R did not automatically order the categories. We can fix this:
+```{r}
+degree = factor(degree,levels=c("high school","associates","bachelors","masters"), ordered = TRUE)
+table(degree)
+```
+Again, even though R will store these values as integers, they are not quantitative variables. For instance, look what happens when I try to take the mean of the degree factor:
+```{r}
+as.numeric(degree)
+mean(degree)
+```
+## Matrices
+We have seen from lecture that matrices are a powerful tool to represent networks. Although much of our work will revolve around using edgelists (for computational efficiency), it is essential to be able to perform basic operations with matrices in R.
+```{r}
+m1 <- matrix(data=1, nrow = 10, ncol = 5) # here is a 10 x 5 matrix of 1s
+m1
+dim(m1)
+```
+We can also create a matrix by combining vectors:
+```{r}
+m2 <- cbind(v1,v2,v5) # binds the previous vectors as columns to form a 9x3 matrix
+m2
+dim(m2)
+m2v2 <- rbind(v1,v2,v5) # binds the vectors as rows to form a 3x9 matrix
+m2v2
+dim(m2v2)
+```
+### Basic matrix operations
+There are a plethora of matrix operations that we can perform, far too many to recreate here. A really important operation, though, is the transpose function and matrix multiplication. This is particularly helpful when we work with two-mode / bipartite networks.
+```{r}
+
+t(m2) # transpose of m2
+m2t <- t(m2) # similar but now we have created a new data object
+m2t
+```
+Now we can post-multiply m2 * m2t to create a square 5x5 matrix:
+```{r}
+m2 %*% m2t
+```
+We can also perform element-wise multiplication:
+```{r}
+m2*m2
+```
+### Arrays
+Arrays are a special type of matrix that involves more than two dimensions. This can be helpful when we explore networks defined by multiple relations. Here is an example of a 5x4x2 array:
+```{r}
+a1 <- array(data=1:20,dim=c(5,4,2))
+a1
+```
+## Lists
+In R, lists are collections of many different kinds of objects that we have created above, such as vectors, matrices, logical values, character strings, and so on. Lists are created using the list() function.
+```{r}
+list1 <- list("IAS", "STEM", "BUS","SES","NUR", c(12,1,34), TRUE, 23, 6)
+list1
+```
+Here is another list that contains a character vector, a matrix, and a list:
+```{r}
+list2 <-list(c("IAS", "STEM", "BUS","SES","NUR"), matrix(c(1:10), nrow = 5), list("Toyota Tacoma",40))
+names(list2) <- c("UWB Schools","A 5x2 Matrix","Meaningless List") ## we can assign names to the different elements in our list
+list2
+list2[1] ## we can also access specific elements from the list
+list2$`A 5x2 Matrix` ## accesses an element by name
+list2[[4]] <- "UWB" ## adds a 4th (new) element to the list
+list2
+```
+### Data Frames
+It is difficult to overstate the importance of data frames in R when it comes to analysis, including network analysis. Data frames are a type of list that typically include columns of vectors or factors and rows that show how the data are distributed within them. Let's create a basic data frame.
+```{r}
+df1 <- data.frame( ID=1:5,
+                   School=c("IAS","BUS","STEM","SES","NUR"),
+                   certification=c(F,F,F,T,T),
+                   size_percent=c(15,15,29,4,8))
+head(df1)
+```
+Just as with any list, we can perform all kinds of operations, such as accessing specific elements. We can also retrieve information about our data. For example, suppose we want to retrieve all schools with size greater than 5 percent:
+```{r}
+df1[df1$size_percent>5,2]
+```
+And, of course, we can generate descriptive statistics where appropriate, such as the average size of schools that do not offer any professional certifications:
+```{r}
+mean(df1[df1$certification==FALSE,4])
+```
+
+# Basics of Drawing Networks in iGraph
+```{r}
+## Load iGraph. You will need to do this every time you start an R session.
+library(igraph)
+```
+## Let's create some graphs
+```{r}
+## Note here that I have created a graph object, g1, and defined the undirected 
+## edges with a vector involving three vertices.
+g1 <- graph(edges = c(1,2, 2,3, 3,1), n=3, directed = F)
+plot(g1, vertex.color="grey")
+```
+
+```{r}
+# Now with 20 vertices. Note that igraph uses directed edges (aka "arcs") by default.
+# Also, vertices can be part of a network even if they are disconnected (i.e., "isolates"):
+g2 <- graph (edges=c(1,2, 1,3, 3,1, 4,5, 5,7, 6,7, 4,7, 10,11, 12,1, 13, 5, 14,14, 15, 13), n=20)
+plot(g2, edge.arrow.size=.5, vertex.color="grey")
+```
+```{r}
+## You can also create graphs with names instead of node symbols.
+g3 <- graph_from_literal(IAS-BUS:STEM-NUR, IAS-NUR-SES) # the ':' operator joins vertex pairs
+plot(g3, vertex.shape="none", vertex.label.color="black")
+
+## this can be directed as well
+g4 <- graph_from_literal(IAS-+BUS:STEM+-NUR, IAS+-+NUR+-SES)
+plot(g4, vertex.shape="none", vertex.label.color="black")
+
+## let's combine the graphs using the disjoint union operator %du% 
+plot(g1 %du% g3, vertex.size=10, vertex.label=NA, vertex.color="grey")
+
+## we can "rewire" these graphs by randomly changing the connections
+g1g3 <- g1 %du% g3
+g1g3 <- rewire(g1g3, each_edge(prob = 0.5))
+plot(g1g3, vertex.size=10, vertex.label=NA, vertex.color="grey")
+```
+
+## Special Types of Graphs
+```{r}
+## Empty graph (i.e., a graph with no edges). 
+g0 <- make_empty_graph(50)
+plot(g0, vertex.size=7, vertex.label=NA, vertex.color="grey")
+```
+```{r}
+## Complete graph (i.e., all possible edges between vertices). Use light gray 
+## for edges to set them into the background.
+gC <- make_full_graph(50)
+plot(gC, edge.color="lightgray", vertex.size=7, vertex.label=NA, vertex.color="grey")
+```
+
+```{r}
+## Ring graph
+gR <- make_ring(25)
+plot(gR, vertex.size=8, vertex.label=NA, vertex.color="grey")
+```
+```{r}
+## Star graph
+gStar <- make_star(50, mode = "undirected")
+plot(gStar, vertex.size=7, vertex.label=NA, vertex.color="grey")
+```
+```{r}
+## Tree graph
+gT <- make_tree(50, children = 4, mode="undirected")
+plot(gT, vertex.size=7, vertex.label=NA, vertex.color="grey")
+```
+```{r}
+## Lattice graph
+gL <- make_lattice(dimvector = c(5,5))
+plot(gL, vertex.size=10, vertex.label=NA, vertex.color="grey")
+```
+
+## Random Graphs
+```{r}
+# Erdos-Renyi G(N,L)
+gER <- sample_gnm(n=300,m=250)
+plot(gER, vertex.size=3, vertex.label=NA, vertex.color="grey")
+gER_deg <- degree_distribution(gER)
+barplot(gER_deg, names.arg = c(0:6), xlab = "degree", ylim = c(0,0.4))
+```
+
+```{r}
+## Barabasi-Albert preferential attachment model for scale-free graphs
+gBA <- sample_pa(n=300, power=1.0, m=1, directed = FALSE)
+plot(gBA, vertex.size=3, vertex.label=NA, vertex.color="grey")
+```
+```{r}
+## Watts-Strogatz small-world model
+gSW <- sample_smallworld(dim=2, size=20, nei=1, p=0.1)
+plot(gSW, vertex.size=5, vertex.label=NA, vertex.color="grey", 
+     layout=layout_in_circle)
+```
+
+# Reading in Network Data Sets
+Make sure to set your working drive. If working in an R script file, use the setwd() function. If working in markdown then use the following (but change the path): 
+```{r setup}
+    # knitr::opts_knit$set(root.dir = normalizePath("ADD YOU FILE PATH HERE")) 
+```
+## Edgelists
+This data set is used in a series of practice tutorials by [SSRI](https://ssri.duke.edu) at Duke University. The nodes are researchers and graduate students and the links are colleague ties  (i.e., x knows y). The data were collected at a conference that the researchers were attending. Note that if you are working in an r script file, then you will need to set your working directory with the setwd() command. You will need to add the path location in parentheses in between quotes. 
+```{r}
+## Start by reading in the edge list
+Colleague_Links <- read.csv('PCMI_Personally Know_Combined Edgelist.csv', header= T, as.is = T)
+## Then read in the attributes of the nodes
+Colleague_Nodes <- read.csv('PCMI_Know Personally_Combined_Nodelist.csv', header=T, as.is = T)
+## Inspect the two data sets
+head(Colleague_Links)
+head(Colleague_Nodes)
+nrow(Colleague_Nodes); length(unique(Colleague_Nodes$Source))
+nrow(Colleague_Links); nrow(unique(Colleague_Links[,c("Source", "Target")]))
+```
+
+```{r}
+#Create a graph object to work with iGraph
+Colleague_Graph <- graph_from_data_frame(d=Colleague_Links, vertices=Colleague_Nodes, directed=T)
+
+# Inspect individual components of the graph
+E(Colleague_Graph)
+V(Colleague_Graph)
+V(Colleague_Graph)$Status
+```
+
+Let's make a quick plot of the network:
+```{r}
+plot(Colleague_Graph, edge.arrow.size=.4,vertex.label=NA, vertex.size=4)
+```
+
+If the goal was to make something hideous and incomprehensible, success! Let's do a few things to clear this up. 
+```{r}
+#Remove self-loops (actors who nominate themselves)
+Colleague_Graph2<-simplify(Colleague_Graph, remove.loops=TRUE)
+plot(Colleague_Graph2, edge.arrow.size=.4,vertex.label=NA, vertex.size=4)
+```
+
+Removing the self-loops improved things a bit, but it would help to differentiate the researchers and grad students.
+```{r}
+V(Colleague_Graph2)$color <- ifelse(Colleague_Nodes[V(Colleague_Graph2), 2] == "Researcher", "blue", "red") 
+E(Colleague_Graph2)$color <- "grey" 
+plot(Colleague_Graph2, edge.arrow.size=0.25, vertex.label = NA, vertex.size=4)
+```
+
+There are many more ways we can improve this visualization, but we'll stop here for now. Later, we will see that can change the symbol shapes and sizes based on certain characteristics of nodes, such as their role and prominence in terms of network activity. 
+
+## Matrix Format
+Matrices are another common data format that we will read into iGraph for analysis and visualization. To begin, we will use a data set that features a network of teachers at a school (many thanks to Alan Daly for the use of these data). The nodes are teachers and the links are "seeks advice about teaching from." The ties are thus directed. 
+
+Start by reading in the adjacency matrix and the node attributes.
+```{r}
+teachers_links <- read.csv('TeachersAskAdvice.csv', header = T, row.names = 1)
+teachers_nodes <- read.csv('TeachersAttributes.csv', header = T, as.is = T)
+head(teachers_links)
+head(teachers_nodes)
+```
+
+Once we read in the matrices (links and node attributes), we once again create a graph object as we did above. This time, we will use the graph_from_adjacency_matrix() function since the data is in matrix form. 
+```{r}
+teachers_links <- as.matrix(teachers_links) # create a new data object that tells R to read the teachers_links file as a matrix
+teachers <- graph_from_adjacency_matrix(teachers_links) # then create a graph object as an adjacency matrix
+plot(teachers, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, edge.curved=.1, vertex.color="gray50") # create a basic plot using curved edges
+```
+# Network Visualization
+Igraph is a highly flexible package for visualizing networks, but the drawback is that the range of options can be overwhelming. In the following, I will demonstrate some of the visualization features of igraph. You can also use the ?igraph.plotting command for additional help. 
+
+## Node Attributes
+Often times it is helpful to color code or size the nodes based on some attribute ([see Dr. Ying Wei's R colors cheat-sheet](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf)). There are multiple ways to do this. In this example, I used a combination of 1. creating an igraph object that defines some attribute of the nodes, and 2. defining an attribute directly in the plot command. More specifically, I created an igraph object of vertex color based on gender. Then, in the plot, the vertex size is scaled based on teachers' number of years in their current position. For a project in which you may want to utilize color schemes frequently or do more complex dataviz, creating an igraph object may be preferable. If you are just creating a basic plot, then specifying the attributes in the plot codes is probably sufficient. Note that if you create an igraph object for nodes or links, you can override those objects in the plot code.
+```{r}
+V(teachers)$color <- ifelse(teachers_nodes[V(teachers), 2] == "1", "gray50", "gold") # create an igraph object for vertex color
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.size=teachers_nodes$YrsCurPos*2, main="Teacher Advice-Seeking") # plot the network and size the nodes using teachers' number of years in their current position 
+colors <- c("gray50", "gold")
+legend(x=-1.5, y=-1.1, c("Women","Men"), pch=21,
+       col="#777777", pt.bg=colors, pt.cex=1.5, cex=.8, bty="n", ncol=1) 
+```
+
+## Edge Attributes
+It is also possible to color code the edges based on an attribute of the relation. In the plot below, the color of the edge is linked to the gender of the sending (i.e., seeks advice from) node. Using curved edges here is helpful for instances in which ties are reciprocated.
+```{r}
+edge.start <- ends(teachers, es=E(teachers), names=F)[,1] 
+edge.col <- V(teachers)$color[edge.start]
+plot(teachers, edge.arrow.size=.2, edge.color=edge.col, edge.curved=.1, vertex.label=NA, vertex.size=teachers_nodes$YrsCurPos*2)
+```
+
+## Highlighting Groups of Nodes
+```{r}
+# Mark multiple groups:
+plot(teachers, vertex.label=NA, edge.arrow.mode=0, mark.groups=list(c(1,4,5,8), c(15:17)), 
+          mark.col=c("#C5E5E7","#ECD89A"), mark.border=NA)
+```
+
+## Network Layouts
+Deciding how to present the layout of a network can have a dramatic impact on how others interpret the results. Strictly speaking, only the sets of vertices and edges define a network, but there are certain principles that can be used to establish a layout that adds interpretive value to the network. 
+
+### Force Directed Layouts
+Force-directed layouts draw from a metaphor of nodes having electrical charges that repulse one another, while the edges act as springs that attract (also why these are sometimes called a spring embedded layouts). Thus, subsets of nodes that are highly interconnected will be positioned closer together than those that are less connected. The Fruchterman-Reingold layout is one of the most popular of the force-directed layouts in network analysis. This algorithm attempts to find the layout that minimizes the energy in the system.
+
+In this first example, you can see that the same network looks slightly different each of the four times it was run since the Fruchterman-Reingold layout is non-deterministic. The nodes and edges are the same in each graph; it's just that the placement of them varies. 
+```{r}
+par(mfrow=c(2,2), mar=c(0,0,0,0))
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+```
+
+In some cases, however, you may want to be able to reproduce the network layout in the exact form. In this case, as with any random process, you use the set.seed() function. After setting the seed to an arbitrary starting point (2022), you can see that each graph layout is identical.
+```{r}
+par(mfrow=c(2,2), mar=c(0,0,0,0))
+set.seed(2022)
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+set.seed(2022)
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+set.seed(2022)
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+set.seed(2022)
+plot(teachers, layout=layout_with_fr, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+```
+
+It is also possible to condense or expand the network layout by creating an igraph object of the layout and using a multiplier.
+```{r}
+layout_fr <- layout_with_fr(teachers)
+par(mfrow=c(1,2), mar=c(0,0,0,0))
+set.seed(2022)
+plot(teachers, layout=layout_fr*.1, rescale=F, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+set.seed(2022)
+plot(teachers, layout=layout_fr*.2, rescale=F, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+```
+
+The Kamada Kuwai is a similar force directed layout. 
+```{r}
+set.seed(2022)
+plot(teachers, layout=layout_with_kk, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+```
+
+### Multidimensional Scaling
+Multidimensional scaling is a data reduction tool that attempts to position objects (in this case nodes) in a (usually) two-dimensional space based on a measure of (dis)similarity, such as Euclidean distance or Jaccard. It has an intuitive interpretation in that the proxmities of the nodes can be interpreted directly. In addition, it is possible to interpret the underlying dimensionality of the proximities, although great care needs to be taken when doing so (usually by reference to some theoretical construct). 
+```{r}
+plot(teachers, layout=layout_with_mds, edge.arrow.size=.3, vertex.label=NA, vertex.size=8, vertex.color="gray50")
+```
+
+```{r}
+layouts <- grep("^layout_", ls("package:igraph"), value=TRUE)[-1]
+# Remove layouts that do not apply to our graph.
+layouts <- layouts[!grepl("bipartite|merge|norm|sugiyama|tree", layouts)]
+
+par(mfrow=c(3,3), mar=c(1,1,1,1))
+for (layout in layouts) {
+  print(layout)
+  l <- do.call(layout, list(teachers)) 
+  plot(teachers, vertex.label=NA, edge.arrow.mode=0, layout=l, main=layout) }
+```
+
+# Measures of Whole Networks
+There are a variety of measures one can use to describe the structural characteristics of networks. 
+
+## Components
+The default mode for the component function is to return weak components.
+```{r}
+components(teachers)
+```
+Note that the output provides the total number of components, the size of each, and the component membership for each node.
+
+Strong components can be generated by specifying the mode in the code.
+```{r}
+components(teachers, mode = "strong")
+```
+
+## Diameter 
+The diameter provides the length of the longest geodesic in a graph. This can be combined with the farthest_vertices function to identify the vertex names so that the path can be highlighted in the network plot.
+```{r}
+diameter(teachers)
+farthest_vertices(teachers)
+## highlight the path of the diameter
+teacher.diameter <- shortest_paths(teachers,
+                             from = V(teachers)["AP"],
+                             to = V(teachers)["AE"],
+                             output = "both")
+ecol <- rep("gray70", ecount(teachers)) 
+ecol[unlist(teacher.diameter$epath)] <- "tomato"
+ew <- rep(2, ecount(teachers)) 
+ew[unlist(teacher.diameter$epath)] <- 4
+vcol <- rep("gray40", vcount(teachers)) 
+vcol[unlist(teacher.diameter$vpath)] <- "gold"
+plot(teachers, vertex.color=vcol, edge.color=ecol, edge.width=ew, edge.arrow.mode=0,
+     vertex.label.cex=.7)
+```
+
+## Density
+The simplest and most widely used measure of cohesion is network density, which expresses the ratio of observed ties to the total number of possible ties, n(n-1) for a directed graph. 
+```{r}
+edge_density(teachers, loops=F) 
+```
+Thus, in the teachers' advice network, 13.1% of all possible directed ties are observed.
+
+## Compactness
+How "clumpy" is the network? Compactness is one measure that can answer this question. Igraph does not have a function for compactness, but it is possible to write a function yourself. 
+```{r}
+compactness <- function(teachers) {
+        gra.geo <- distances(teachers) ## generate geodesic distances
+        gra.rdist <- 1/gra.geo  ## reciprocal of geodesics
+        diag(gra.rdist) <- NA   ## assign NA to diagonal
+        gra.rdist[gra.rdist == Inf] <- 0 ## replace infinity with 0
+          # Compactness = mean of reciprocal distances
+        comp.igph <- mean(gra.rdist, na.rm=TRUE) 
+        return(comp.igph)
+        }
+compactness(teachers)
+compactness(Colleague_Graph2)
+```
+
+The lower the value of compactness, the less cohesive the network. Whether a network is compact or not is always a relative question, so there isn't a direct answer with this single measure. If we look at the colleague graph from above, it can be seen that the teacher advice graph is more compact than the colleague graph (at least descriptively). However, we have to be careful about directly comparing networks of different size and edge types (e.g., small networks tend to be more dense).
+
+## Reciprocity
+There are two global measures that are commonly used to characterize the extent of reciprocity in a network: arc and dyadic. The former characterizes the proportion of all outgoing arcs that are reciprocated, whereas the latter is the proportion of all adjacent dyads that are symmetric.
+```{r}
+dyad_census(teachers) # mutuals assymetrics and nulls
+reciprocity(teachers, mode = c("default")) ## arc reciprocity
+reciprocity(teachers, mode = c("ratio")) ## dyadic reciprocity
+```
+
+## Transitivity
+This is also called the global clustering coefficient, as it provides a measure of the tendency for nodes to cluster together in a network. Specifically, the measure describes the proportion of closed triples relative to the total number of triples in the graph.
+```{r}
+transitivity(teachers, type="global") # note that here the network is treated as undirected
+```
+
+It is also possible to conduct a census of the different triadic states in a network. In directed networks, there are 16 possible states made up of mutuals, assymetrics and nulls (up; down; cyclical; transitive):  
+003 A, B, C, empty triad: 0 mutuals, 0 asymmetrics, 3 nulls  
+012 A->B, C  
+102 A<->B, C  
+021D A<-B->C  
+021U A->B<-C  
+021C A->B->C  
+111D A<->B<-C  
+111U A<->B->C  
+030T A->B<-C, A->C  
+030C A<-B<-C, A->C  
+201 A<->B<->C  
+120D A<-B->C, A<->C  
+120U A->B<-C, A<->C  
+120C A->B->C, A<->C  
+210 A->B<->C, A<->C  
+300 A<->B<->C, A<->C, completely connected triad: 3 mutuals, 0 asymmetrics, 0 nulls
+```{r}
+triads <- triad.census(teachers) # optional: create an object so the states can be plotted
+triads
+barplot(triads, names.arg = c("003", "012", "102", "021D", "021U", "021C",
+                              "111D", "111U", "030T", "030C", "201", "120D",
+                              "120U", "120C", "210", "300"), xlab = "Triadic State",
+        cex.names = .6, cex.axis = .8, ylim = c(0,2500))
+```
+
+## Centralization
+How much of the network activity works through a central hub? Freeman's degree centralization is a measure of the extent to which a network is dominated by a single node or relatively few set of nodes. Degree is used as the measure of centrality in this example, but other measures can be substituted depending on the research question (e.g., betweenness, closeness)
+```{r}
+centr_degree(teachers)$centralization
+```
+
+# Centrality
+Whereas measures of cohesion assess the overall structure of a network, measures of centrality focus on the roles and positions of individual nodes. Put another way, centrality measures seek to describe how individual nodes contribute to the overall structure of a network.There are numerous available measures, but the following are a common point of departure for such analyses.
+
+## Degree
+The degree of a node is the number of lines incident to that node (i.e., the number of connections it has to other nodes). For directed networks, there can be in-degree (number of lines being "sent" to the focal node), out-degree (the number of lines originating from the focal node), and total degree (the sum of in-degree and out-degree).
+```{r}
+degree(teachers, mode="in") # returns the degree of all nodes for the mode specified
+degree(teachers, mode="in", normalized=TRUE) # normalized=TRUE divides raw degree by n-1 to express as a proportion
+
+# You can also create objects and then combine into a data frame:
+teacher_degree <- degree(teachers, mode="total")
+teacher_indeg <- degree(teachers, mode="in") 
+teacher_outdeg <- degree(teachers, mode="out")
+dat <- data.frame(teacher_degree, teacher_indeg, teacher_outdeg)
+dat
+```
+
+Once you have degree objects, then you can easily weight node sizes by those measures:
+```{r}
+par(mfrow=c(1,3), mar=c(1,1,1,1))
+set.seed(2022)
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=teacher_degree)
+title(main="total degree", line= -5)
+set.seed(2022)
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=teacher_indeg)
+title(main="in-degree", line= -5)
+set.seed(2022)
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=teacher_outdeg)
+title(main="out-degree", line= -5)
+```
+
+## Betweenness
+Betweenness may be the most theoretically developed concept of centrality, at least in the social and behaviorial sciences. Betweenness captures how often a focal node falls along the shortest path between pairs of nodes in the network.
+```{r}
+between <- betweenness(teachers, directed = TRUE, normalized = FALSE)
+bet_normalized <- betweenness(teachers, directed = TRUE, normalized = TRUE)
+bet.dat <- data.frame(between, bet_normalized)
+bet.dat
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=between*.1, main="Nodes weighted by betweenness centrality")
+```
+
+## K-Step Reach
+K-step centrality is similar to degree, only it measures the number of nodes within K links of a given node (if K=1 then this is the same as degree). Although it is possible to derive K-step measures that respect direction, it is often the case that network analysts treat the data as undirected. There is no K-step function in igraph, but you can write your own function to do this. In this function (created by Diazaboro Shizuka and reproduced on [RPubs](https://rpubs.com/pjmurphy/313180)), K is set to 2 (i.e., path length of 2) and the results are normalized to show the proportion of of nodes reachable by 2-steps (data treated as undirected). 
+
+```{r}
+reach2<-function(x){
+  r=vector(length=vcount(x))
+  for (i in 1:vcount(x)){
+    n=neighborhood(x,2,nodes=i)
+    ni=unlist(n)
+    l=length(ni)
+    r[i]=(l)/vcount(x)}
+  r}
+
+reach2(teachers)
+teacher_reach2 <- reach2(teachers)
+set.seed(2022)
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=teacher_reach2*10)
+```
+## PageRank
+PageRank, developed by Google founders Larry Page and Sergey Brin, is an interesting measure of a node's importance in networks. It's hard to overstate how much this algorithm has impacted our lives (for better or worse is another discussion). At its core, PageRank is intuitive: a node's importance is determined not just by how many connections it receives, but by the quality of those connections. A node gains higher PageRank when it receives connections from other nodes that themselves have high PageRank scores. This recursive relationship means that each node's centrality score is continuously updated based on the changing scores of its connecting nodes. In the present context, a link from a highly respected teacher carries more weight than multiple links from teachers who are less often sought after for advice. 
+```{r}
+teacher_pagerank <- page_rank(teachers, directed = TRUE)
+set.seed(2022)
+plot(teachers, edge.arrow.size=.2, vertex.label=NA, vertex.color="tomato",
+     vertex.size=teacher_pagerank$vector*100)
+```
+
+# Community Detection
+
+## Fastgreedy
+```{r}
+library(igraphdata) # Karate data is stored in this package
+data(karate) # call the data set and store in environment
+set.seed(5)
+plot(karate, vertex.labels=NA, main="Zachary's Karate Club")
+zach <- make_graph("Zachary") # make a new graph object that excludes the default colors based on faction
+fast <- cluster_fast_greedy(zach)
+dendPlot(fast) # provides a dendrogram of the hierarchical community structure
+set.seed(5)
+plot(fast,zach,vertex.label.color="black", vertex.size=14, vertex.label.size=1)
+modularity(fast) # value of modularity for the fast.greedy community detection
+length(fast) # number of communities
+membership(fast) # community membership for each node
+sizes(fast) # number of nodes in each community
+```
+
+If you find the shading and edge colors distracting, just plot the network based on membership:
+```{r}
+set.seed(5)
+plot(zach,vertex.label.color="black", vertex.size=14, vertex.label.size=1,
+     vertex.color=membership(fast))
+```
+
+And the community colors can be customized using the RColorBrewer package:
+```{r}
+library(RColorBrewer)
+colors <- brewer.pal(length(fast),'Dark2') # create a palette 
+V(zach)$color=colors[membership(fast)] # assign vertices to a color based on membership
+set.seed(5)
+plot(zach, vertex.label=NA)
+```
+
+## Edge betweenness
+This is the classic community detection algorithm based on work by Girvan-Newman. 
+```{r}
+gv <- cluster_edge_betweenness(zach, modularity = TRUE)
+dendPlot(gv, mode="hclust")
+set.seed(5)
+plot(gv,zach,vertex.label.color="black", vertex.size=14, vertex.label.size=1)
+modularity(gv)
+```
+
+## Louvain
+```{r}
+multi <- cluster_louvain(zach)
+set.seed(5)
+plot(multi,zach,vertex.label.color="black", vertex.size=14, vertex.label.size=1)
+modularity(multi)
+```
+
+## Infomap
+
+The infomap algorithm can be used when working with directed graphs (as can edge-betweenness):
+```{r}
+info <- cluster_infomap(teachers)
+set.seed(5)
+plot(info, teachers, edge.arrow.size=.2, vertex.label=NA)
+```
+
+# Two-Mode Networks
+Igraph is primarily designed to handle one-mode networks (i.e. direct ties between a set of nodes). However, the package contains a sufficient number of functions to do meaningful analysis of two-mode data (i.e., a set of nodes and a set of "events"). The [tnet]('https://toreopsahl.com/tnet/two-mode-networks/') package offers a more targeted set of functions for two-mode data (as well as weighted and longitudinal networks), but it is not meant to replace the visualization capabilities of igraph. There is a newer package called [bipartite]('https://cran.r-project.org/web/packages/bipartite/bipartite.pdf') developed for ecological networks, but I have not used it yet.
+
+There are a few ways to analyze two-mode networks: 1. proceed as normal without any transformation of the data; 2. convert the two-mode dataset into separate one-mode datasets (one for each mode); or 3. analyze the network as a bipartite graph. The following provides setup for any of these approaches using a two-mode network of non-profit organizations in education (mode 1) and their policy preferences for education reform (mode 2) at the time of data collection (2017). 
+```{r}
+pie <- read.csv('nationalpartners.csv', header=T, row.names = 1)
+pie <- as.matrix(pie)
+partners <- pie%*%t(pie) # post-multiply the original matrix by its transpose to get a organization-by-organization matrix with weighted ties showing the number of policy preferences they share in common
+beliefs <- t(pie)%*%(pie) # pre-multiply the transpose by the original matrix to get a policy preference-by-policy preference matrix with weighted ties showing the number of organizations they share in common
+pienet <- graph_from_biadjacency_matrix(pie) # graph object from original two-mode matrix
+pienet.bp <- bipartite_projection(pienet) # bipartite projection (helpful for visualizations)
+partnernet <- graph_from_adjacency_matrix(partners, mode="undirected", 
+                                          diag = FALSE, weighted = TRUE) # graph object of org-by-org network
+beliefnet <- graph_from_adjacency_matrix(beliefs, mode = "undirected",
+                                         diag = FALSE, weighted = TRUE) # graph object of preference-by-preference network
+id <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24) # create node ids
+mode <- c(1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2) # create mode membership
+pie_nodes <- data.frame(id, mode) # create node data frame to differentiate modes
+```
+
+## Two-mode visualization
+```{r}
+plot(pienet, vertex.label.cex=.6, vertex.label.color="black", vertex.size=8, 
+     vertex.color=ifelse(pie_nodes[V(pienet), 2] == 1, "lightgray", "lightblue"),
+     vertex.frame.color="NA", vertex.label.dist=2)
+```
+
+Another option is to drop the vertices entirely and only visualize the labels (color coded by mode):
+```{r}
+plot(pienet, vertex.shape="none", vertex.label.cex=.6, vertex.label.font=2,
+     vertex.label.color=ifelse(pie_nodes[V(pienet), 2] == 1, "deepskyblue4", "palegreen3"))
+```
+
+A third option is to use the bipartite layout in the plot function:
+```{r}
+plot(pienet, vertex.label=NA, vertex.size=8, 
+     vertex.color=ifelse(pie_nodes[V(pienet), 2] == 1, "lightgray", "lightblue"),
+     layout=layout.bipartite)
+```
+
+## Two-mode analysis
+You can generate density and centrality values for the original matrix, but some care has to be taken in the interpretation. For example, the density is 0.21, but by definition within mode ties are not possible. 
+```{r}
+edge_density(pienet) # caution! within mode ties are not possible so the value of density as traditionally defined is misleading. 
+58 / 135 # a better approach is to count the number of edges and then divide by nxm
+```
+
+Running the degree or betweenness centrality scores will provide meaningful values. However, if you want normalized values, the standard approach in igraph will not work. 
+```{r}
+degree(pienet)  
+betweenness(pienet, directed = FALSE)
+```
+
+## Single Mode Analysis
+Another common approach is to analyze the modes as distinct one-mode networks. It is important to keep in mind that the edges are not direct ties, but rather affiliations with the other mode.
+```{r}
+plot(partnernet, edge.width=E(partnernet)$weight, vertex.label.cex=.8, vertex.label.color="black", 
+     vertex.size=10,vertex.label.dist=2) # utilize the edge weight attribute that igraph creates to weight the edges
+```
+
+Here is the one mode projection of the other mode:
+```{r}
+plot(beliefnet, edge.width=E(partnernet)$weight, vertex.label.cex=.8, vertex.label.color="black",
+     vertex.size=10,vertex.label.dist=2) 
+```
+
+Note that transforming the two-mode network into one-mode networks tends to create highly dense networks and inflated degree scores since nodes often share at least one event in common. One option is to set a threshold for a tie based on the number of events that are shared in common, or remove events that all or nearly all nodes share in common. The following are the values when everything is left as is.
+```{r}
+edge_density(partnernet)
+edge_density(beliefnet)
+degree(partnernet)
+degree(beliefnet)
+```
+
+## Bipartite projections
+Using the bipartite projection format defined in the setup above gives easy access to the different modes when visualizing two-mode networks: 
+```{r}
+par(mfrow=c(1,2))
+plot(pienet.bp$proj1, vertex.label.color="black", vertex.label.dist=1.5, vertex.label.cex=.8, vertex.size=8, edge.width=E(partnernet)$weight)
+plot(pienet.bp$proj2, vertex.label.color="black", vertex.label.dist=1.5, vertex.label.cex=.8, vertex.size=8, edge.width=E(partnernet)$weight)
+```
+
+
